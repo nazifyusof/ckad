@@ -15,7 +15,7 @@
 ## 9. Exam Tips & Speed Tricks
 
 ### Aliases
-```zshrc
+```bashrc
 # --- Core ---
 alias k='kubectl'
 alias kg='kubectl get'
