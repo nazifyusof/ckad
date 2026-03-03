@@ -306,11 +306,111 @@ metadata:
   - `kubectl apply -f /filepath/` if multiple, to apply all YAML files in the directory
 - Update 
   - `kubectl apply -f nginx.yaml`
-  - 
-
-
 
 ## 3. Scheduling
+- Scheduling is the process of assigning pods to nodes based on resource availability and constraints
+- The kube-scheduler is responsible for scheduling pods to nodes
+
+### Manual scheduling
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  nodeName: <name-of-the-node> # <-- this will schedule the pod to the specified node, but it is not recommended for production as it does not provide any flexibility or fault tolerance
+  containers:
+  - image: nginx
+    name: nginx
+```
+
+### Labels and Selectors
+- We can group object by their types, application, functionality, etc. using labels and selectors
+
+#### Command
+- Filter objects by selectors, `kubectl get pods --selector env=dev`
+- Filter objects by multiple selectors, `kubectl get pods --selector env=dev,tier=frontend`
+
+```yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: simple-webapp
+  labels:
+    name: App1                 # this is the labels configured on the replicaset, used to configure object to discover the replicaset
+    function: front-end
+  annotations:
+    buildversion: "1.0"          # record other details for better management, not used for scheduling or selection
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: App1                    # this is the selector used to select the pods that belong to this replicaset, it should match the labels configured on the pod
+  template:
+    metadata:
+      labels:
+        name: App1                  # this is the labels configured on the pod
+        function: front-end
+    spec:
+      containers:
+      - name: simple-webapp
+        image: simple-webapp
+```
+
+### Taint and Tolerations
+- Node: Taints, no unwanted pods to be scheduled on the node
+- Pods: Tolerations, allow pods to be scheduled on nodes with matching taints
+- Taints and tolerations work together to ensure that pods are not scheduled onto inappropriate nodes.
+- Taint and Toleration doesn't tell where the pods should be scheduled, it only tells where the pods should not be scheduled. 
+- If a node has a taint, it means that no pods can be scheduled on that node unless they have a matching toleration. If a pod has a toleration, it means that it can be scheduled on nodes with matching taints.
+
+#### Command
+- Taint a node: `kubectl taint nodes <node-name> <key>=<value>:<taint-effect>`, taint-effect can be NoSchedule, PreferNoSchedule, or NoExecute
+  - NoExecute: Taints the node so that no pods can be scheduled on it, and any existing pods on the node will be evicted, unless pod has matching teleration
+  - NoSchedule: Taints the node so that no pods can be scheduled on it, but existing pods will not be evicted
+  - PreferNoSchedule: Taints the node so that the scheduler will try to avoid schedulin
+- Untaint a node, append dash: `kubectl taint nodes <node-name> <key>:<taint-effect>-`
+- Add toleration is below
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+  tolerations:
+  - key: "app"
+    operator: "Equal"
+    value: "blue"
+    effect: "NoSchedule"
+
+```
+
+
+### Node Selectors
+
+### Node Affinity
+
+### Resource Limits
+
+### DaemonSets
+
+### Static Pods
+
+### Priority Classes
+
+### Multiple Schedulers
+
+### Configuring Scheduler profiles
+
+### Admission Controllers
+
+### Validating and Mutating Admission Controllers
+
+
+
 ## 4. Observability
 ## 5. Pod Design
 ## 7. State Persistence
