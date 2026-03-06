@@ -388,16 +388,183 @@ spec:
 
 ```
 
-
 ### Node Selectors
+- Allows us to say which nodes we want to schedule our pods on
+
+#### Command
+- Add label to a node: `kubectl label nodes <node-name> <key>=<value>`
+- More complex with Node Affinity
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+    - name: data-processor
+      image: data-processor
+  nodeSelector:
+    size: large
+```
 
 ### Node Affinity
+- More advance expression of node selector, allows us to specify rules for scheduling pods on nodes based on labels and conditions
+- Below works the same as above
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+    - name: data-processor
+      image: data-processor
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution: 
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: size
+            operator: In                  # operator can be In, NotIn, Exists, DoesNotExist, Gt, Lt
+            values:
+            - large
+```
+
+#### Affinity types
+- RequiredDuringSchedulingIgnoredDuringExecution: If the rules are not met, the pod will not be scheduled. If the rules are violated after the pod is scheduled, it will not be evicted.
+- PreferredDuringSchedulingIgnoredDuringExecution: if the rules are not met, the pod will still be scheduled, but it will be less preferred. If the rules are violated after the pod is scheduled, it will not be evicted.
+- RequiredDuringSchedulingRequiredDuringExecution: If the rules are not met, the pod will not be scheduled. If the rules are violated after the pod is scheduled, it will be evicted.
+
+### Affinity vs Taint & Tolerations
+- Taints and tolerations does not tell where the pods should be scheduled, it only tells where the pods should not be scheduled.
+- Affinity tells where the pods should be scheduled, however, it does not guarantee that other pods will not be scheduled on the same node
+- Combination of both can be used to achieve more complex scheduling requirements
+  - TnT to prevent other pods form being placed on our nodes
+  - Affinity to specify where our pods should be placed, and prevent our pods from being placed on other nodes
 
 ### Resource Limits
+- kube-scheduler checks resources before scheduling a pod to a node
+- CPU cannot use resources more than its limit, but Memory can use more than its limit (but will get OOM killed if constantly)
+- By default, no resource limit are set. A pod can use all the resources of a node, which can lead to resource contention and instability in the cluster.
+
+#### CPU behavior
+- No request, no limit: pod can use all CPU on the node, but is only guaranteed a minimal fair share if multiple pods compete. CPU can be throttled during contention.
+- No request, limit: pod can use all the CPU resources of the node, but it will be throttled if it tries to use more than its limit
+- Request, limit: pod is guaranteed to have the requested CPU resources, but it will be throttled if it tries to use more than its limit
+- Request, no limit: pod is guaranteed to have the requested CPU resources, but it can use all the CPU resources of the node if needed, which can lead to resource contention and instability in the cluster
+
+#### Memory
+- No request, no limit: Pod can use all memory on the node; may cause resource contention and instability if multiple pods use lots of memory.
+- No request, limit: Pod can use memory freely until it hits the limit; it will be OOMKilled if it tries to exceed the limit.
+- Request, limit: Pod is guaranteed the requested memory; will be OOMKilled if it exceeds the limit.
+- Request, no limit: Pod is guaranteed the requested memory, but can use more if available; Kubernetes cannot throttle memory, so pod may still be OOMKilled if node runs out of memory.
+
+#### Limit range
+
+```yaml
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-resource-constraints
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: 500m               # or memory: 512Mi
+    defaultRequest:
+      cpu: 200m                # or memory: 512Mi
+    max:
+      cpu: "1"
+    min:
+      cpu: 100m
+```
+
+#### Resource Quotas
+- Create quota at namespace level to limit the total resource consumption of all pods in the namespace, which can help to prevent a single team or application from consuming all the resources in the cluster and ensure fair resource allocation among different teams and applications
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: my-resource-quota
+spec:
+  hard:
+    requests.cpu: "4"           # total CPU request for all pods in the namespace cannot exceed 4
+    request.memory: 8Gi                # total memory request for all pods in the namespace cannot exceed 8Gi
+    limits.cpu: "10"              # total CPU limit for all pods in the namespace cannot exceed 10
+    limits.memory: 16Gi             # total memory limit for all pods in the namespace cannot exceed 16Gi
+```
 
 ### DaemonSets
+- Deploy 1 pod per node, used for cluster-wide services like log collection, monitoring, etc.
+- Kube-proxy is deployed as a DaemonSet, which ensures that there is a kube-proxy pod running on each node in the cluster
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: kube-proxy
+  name: kube-proxy
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: kube-proxy
+  template:
+    metadata:
+      labels:
+        name: kube-proxy
+    spec:
+      containers:
+      - name: kube-proxy
+        image: k8s.gcr.io/kube-proxy:v1.13.0
+```
+
+#### Commands
+- Get DaemonSet: `kubectl get daemonset`
+- Describe DaemonSet: `kubectl describe daemonset <daemonset-name>`
 
 ### Static Pods
+- Static pods are managed directly by the kubelet on a specific node, without the involvement of the kube-apiserver
+- Only works for pods, not for other resources like services, deployments, etc.
+- When kubelet creates a static pod, a mirror pod is created in the kube-apiserver with the same name and namespace, but with a different UID. This allows the kube-apiserver to track the status of the static pod and report it to the user, while the kubelet continues to manage the lifecycle of the static pod independently.
+- Use case: deploy control plane component as pod on a node
+
+| Static pod                                        | daemonset                             |
+|---------------------------------------------------|---------------------------------------|
+| Created by kubelet, not managed by kube-apiserver | Created and managed by kube-apiserver | 
+| Deploy Control Plane components as static pods    | Deploy monitoring agents, log collectors, etc. as daemonsets |
+| Ignored by kubescheduler | Ignored by kubescheduler |
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: static-busybox
+  name: static-busybox
+spec:
+  containers:
+  - command:
+    - sleep
+    - "1000"
+    image: busybox:1.28.4
+    name: static-busybox
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+```
+
+#### Commands
+- Get static pods: `kubectl get pods `, and look for pods with `-<node-name>` appended in the name
+- Create static pod: `kubectl run my-static-pod --image=nginx --dry-run=client -o yaml > /etc/kubernetes/manifests/my-static-pod.yaml`
+- To delete static pod
+  - identify the node
+  - ssh into the node
+  - run `ps -ef |  grep /usr/bin/kubelet `
+  - get the path of the static pod manifest file, which is usually `grep -i staticpod /var/lib/kubelet/config.yaml`
+  - delete the static pod manifest file, which will cause the kubelet to delete the static pod
+
 
 ### Priority Classes
 
