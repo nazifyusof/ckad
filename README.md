@@ -567,10 +567,105 @@ spec:
 
 
 ### Priority Classes
+- Non-namespaced objects
+- Priorities: range of number (apps): -2147483648 and 10000000000
+- Range for internal (system): 1000 000 000 to 2 0000 000 000
+- Global value, single priority class can be used by multiple pods, and a pod can only have one priority class
+
+```yaml
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority
+value: 1000000000
+description: "blabla"
+preemptionPolicy: PreemptLowerPriority # can be PreemptLowerPriority (Kill existing low priority workload) or Never (cannot pre-empt other existing pods), default is PreemptLowerPriority
+```
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: myapp-pod
+  labels:
+    app: myapp
+    type: front-end        # <-- can have any kind of key-value pair as we see fit, but we should follow some conventions for better organization and management
+spec: 
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      ports:
+        - containerPort: 8080
+  priorityClassName: high-priority
+ ```
+
+#### Command
+- List priority classes: `kubectl get priorityclass`
+- Get pods priority colum: `kubectl get pods -o custom-columns="NAME:.metadata.name,PRIORITY:.spec.priorityClassName"`
 
 ### Multiple Schedulers
+- Custom schedulers can be deployed, can have multiple schedulers at a time
+
+#### Command
+- View scchedulers: `kubectl get pods -n kube-system`
+- View scheduler logs: `kubectl logs <scheduler-pod-name> -n kube-system`
+- Deploy custom scheduler: `wget https://storage.googleapis.com/kubernetes-release/release/v1.13.0/bin/linux/amd64/kube-scheduler`
+- Deploy additional scheduler as a pod
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+    type: front-end        
+spec:
+  containers:
+  - command:
+    - kube-scheduler
+    - --address=127.0.0.1
+    - --kubeconfig=/etc/kubernetes/scheduler.conf- --config=etc/kubernetes/scheduler-config.yaml
+    image: k8s.gcr.io/kube-scheduler:v1.13.0
+    name: my-scheduler
+```
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+  schedulerName: my-scheduler
+```
 
 ### Configuring Scheduler profiles
+- **Four pipeline stages in order:** Queue Sort → Filter → Score → Bind
+- **Each stage uses plugins** that can be enabled or disabled to customize scheduling behavior
+- **Multiple profiles can run in a single scheduler binary**, each with a different
+   name and plugin configuration
+- **Pods select a profile** via `schedulerName` in their spec, defaulting to `default-scheduler` if not specified
+- **Multiple profiles prevent race conditions** that occur when running separate scheduler binaries competing for the same node
+
+```yaml
+apiVersion: kubescheduler.config.k8s.io/v1
+kind: KubeSchedulerConfiguration
+profiles:
+  - schedulerName: default-scheduler
+    plugins:
+      score:
+        disabled:
+          - name: NodeResourcesBalancedAllocation
+        enabled:
+          - name: MyCustomScorePlugin
+  - schedulerName: high-priority-scheduler
+    plugins:
+      filter:
+        disabled:
+          - name: TaintToleration
+```
 
 ### Admission Controllers
 
