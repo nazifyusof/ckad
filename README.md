@@ -3,8 +3,7 @@
 <h1 align="center">Certified Kubernetes Application Developer (CKAD) Notes</h1>
 
 # CKAD Practice
-- https://learn.kodekloud.com/user/courses/udemy-labs-certified-kubernetes-administrator-with-practice-tests 
-- 
+- https://learn.kodekloud.com/user/courses/udemy-labs-certified-kubernetes-administrator-with-practice-tests
 
 # CKAD Notes
 
@@ -668,10 +667,49 @@ profiles:
 ```
 
 ### Admission Controllers
+- Kubelet -> authentication -> authorization -> admission-controllers -> create pod
+- For context: 
+  - Authentication: certificate, token, etc.
+  - Authorization: RBAC, etc
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developer
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
+    resourceNames: [""] # optional, if specified, only allow access to the specified resources
+```
+- Admission controllers helps us implement better security, resource management, and other policies in the cluster by intercepting requests to the kube-apiserver and modifying or rejecting them based on predefined rules.
+- AC
+  - AlwaysPullImages: Always pull images, even if they are already present on the node
+  - DefaultStorageClass: Automatically set the default storage class for persistent volume claims that do not specify a storage class
+  - NamespaceExists: Reject requests to create or update objects in namespaces that do not exist
+  - NameSpaceAutoProvision: Automatically create namespaces when they are referenced in object creation requests but do not exist
+
+#### command
+- View enabled admission controllers: `kube-apiserver -h | grep enable-admission-plugins`
+- Add admission controller to kube-apiserver.yaml: `- --enable-admission-plugins=NamespaceAutoProvision,DefaultStorageClass`
+- Add webhoook admission controller: `- --enable-admission-plugins=ImagePolicyWebhook`, ``- --admission-control-config-file=/etc/kubernetes/imgvalidation/admission-configuration.yaml``
 
 ### Validating and Mutating Admission Controllers
-
-
+- Mutating admission controller can modify the request object before it is persisted
+- Validating admission controller can be used to enforce policies and security in the cluster, to reject or allow certain requests based on predefined rules
+- Ex:
+  - Mutating
+    - `NamespaceAutoProvision`: Automatically create namespaces when they are referenced in object creation requests but do not exist
+  - Validating
+    - `NamespaceExists`: Reject requests to create or update objects in namespaces that do not exist
+- Two special admission controllers for custom policies:
+  - `ValidatingAdmissionWebhook`: Allows you to define custom validation logic in an external webhook service. When a request is made to the kube-apiserver, it sends the request data to the webhook service, which can then validate the request and return a response indicating whether the request should be allowed or rejected.
+  - `MutatingAdmissionWebhook`: Similar to the validating webhook, but allows you to modify the request object before it is persisted. This can be used to automatically add labels, annotations, or other fields to objects based on certain criteria.
+- How to setup:
+  1. Create a admission webhook service that implements the desired validation or mutation logic
+     - `/validate` for validating webhook, 
+     - `/mutate` for mutating webhook
+  2. Configure webhook on kubernetes by creating webhook configuration objects (ValidatingWebhookConfiguration or MutatingWebhookConfiguration) that specify the webhook service and the rules for when the webhook should be invoked
 
 ## 4. Observability
 ## 5. Pod Design
