@@ -271,7 +271,6 @@ spec:
     operator: "Equal"
     value: "blue"
     effect: "NoSchedule"
-
 ```
 
 ### Node Selectors
