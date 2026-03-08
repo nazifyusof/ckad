@@ -713,10 +713,13 @@ rules:
 
 ## 4. Observability
 ## 5. Pod Design
+## 6. Services & Networking
 ## 7. State Persistence
 ## 8. Security
-## 8. Storage
-## 6. Networking
+## 9. Helm Fundamentals
+## 10. Kustomize Fundamentals
+
+
 
 ## 9. Exam Tips & Speed Tricks
 
