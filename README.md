@@ -112,14 +112,133 @@ spec:
 - create the pod: `kubectl create -f pod-definition.yaml`
 
 ## 2. Configuration
-
 ### Docker
+Layer 1: Base image (e.g. Ubuntu)
+Layer 2: Change in apt packages (e.g. install python)
+Layer 3: Change in pip packages (e.g. install flask and flask-mysql)
+Layer 4: Change in source code (e.g. copy source code to the image)
+Layer 5: Update entrypoint
 
-### Commands in Docker
+```yaml
+FROM Ubuntu
 
-### Commands in Kubernetes
+RUN apt-get update 
+RUN apt-get install python
+
+RUN pip install flask
+RUN pip install flask-mysql
+
+COPY . /opt/source-code
+
+ENTRYPOINT FLASK_APP=/opt/source-code/app.py flask run
+```
+
+### Commands and Arguments in Docker
+- `docker build -t myapp .`: Build an image named myapp with the latest tag from the current directory
+- `docker run -p 8282:8080 myapp`: Run the myapp image with the default command (which is usually bash), 8282 is the port on the host machine, 8080 is the port in the container
+- `docker ps -a`: List all containers, including the ones that are stopped
+- `docker images`: List all images
+- `docker run ubuntu sleep`
+- `docker logs -f <container-id>`: Follow the logs of a container
+- CMD provides defaults args
+```yaml
+FROM ubuntu
+CMD sleep 5
+```
+- ENTRYPOINT provides the command to run 
+```yaml
+FROM ubuntu
+ENTRYPOINT["sleep"]
+```
+  - To set default value
+```yaml
+FROM ubuntu
+ENTRYPOINT["sleep"]
+CMD ["5"]
+```
+
+
+### Commands and Arguments in Kubernetes
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-pod
+spec:
+  containers:
+    - name: sleeping-container
+      image: ubuntu-sleeper
+      command: ["sleep"]
+      args: ["5"]
+```
+- The command field overrides the ENTRYPOINT instruction in Docker file,
+- The args field overrides the CMD instruction in Docker file
+- It's not the command field that overrides the CMD instruction in Docker file
 
 ### Environment Variables and ConfigMaps
+- In docker, `docker run -e APP_COLOR=blue myapp` to set environment variable
+- In Kubernetes, we can set environment variables in the pod definition file
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-color-pod
+spec:
+  containers:
+    - name: app-color-container
+      image: app-color-sleeper
+      ports:
+        - containerPort: 8080
+      env:
+        - name: APP_COLOR
+          value: "blue"
+```
+- We can also use ConfigMaps
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-color-pod
+spec:
+  containers:
+    - name: app-color-container
+      image: app-color-sleeper
+      ports:
+        - containerPort: 8080
+      env:
+        - name: APP_COLOR
+          valueFrom:
+            configMapKeyRef:
+              name: app-color-config
+              key: color
+      # or
+      envFrom:
+        - configMapRef:
+            name: app-color-config
+      # or
+  volumes:
+    - name: app-color-config-volume
+      configMap:
+        name: app-color-config
+```
+
+#### Command
+- Create a ConfigMap imperatively: `kubectl create configmap <config-name> --from-literal=<key>=<value>`
+  - Multiple: `kubectl create configmap <config-name> --from-literal=<key1>=<value1> --from-literal=<key2>=<value2>`
+  - From file: `kubectl create configmap <config-name> --from-file=<file-path>`
+  - From file specify key: `kubectl create configmap <config-name> --from-file=<key>.<props>=<file-path>`
+- View ConfigMaps: `kubectl get configmaps`
+- Describe ConfigMap: `kubectl describe configmap <config-name>`
+- Create a ConfigMap declaratively: `kubectl create -f`
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: app-color-config
+data:
+  APP_COLOR: "blue"
+  APP_MODE: "production"
+```
 
 ### Secrets
 
