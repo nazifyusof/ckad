@@ -241,8 +241,77 @@ data:
 ```
 
 ### Secrets
+- Create secret, then inject into pod
+
+#### Command
+- Create a Secret
+  - Imperatively:
+    - `kubectl create secret generic <secret-name> --from-literal=<key>=<value>`
+    - Multiple: `kubectl create secret generic <secret-name> --from-literal=<key1>=<value1> --from-literal=<key2>=<value2>`
+    - From file: `kubectl create secret generic <secret-name> --from-file=<file-path>`
+  - Declaratively:
+    - kubectl create -f 
+    - Best if to store secret in hash form, which can be generated with `echo -n 'myvalue' | base64`
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+    name: app-secret
+type: Opaque
+stringData:
+  DB_host: bXlzcWwtc2VydmVyLmV4YW1wbGUuY29t
+  DB_user: bXl1c2Vy
+  DB_password: bXlwYXNzd29yZA==
+```
+- Get secrets: `kubectl get secrets`
+- Describe secrets: `kubectl describe secret <secret-name
+- Decoding secret: `echo -n 'bXl1c2Vy' | base64 --decode`
+- To inject secrets into pod```yaml
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: app-secret-pod
+spec:
+    containers:
+    - name: app-secret-container
+      image: app-secret-sleeper
+      envFrom:
+      - secretRef:
+          name: app-secret
+      # or
+      env:
+      - name: DB_host
+        valueFrom:
+          secretKeyRef:
+            name: app-secret
+            key: DB_host
+```
+
+#### Encrypting secret data at rest
+- Stored in etcd
+- https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/#:~:text=control%20plane%20host.-,Verify%20that%20newly%20written%20data%20is%20encrypted,-Data%20is%20encrypted
 
 ### Security Contexts
+- If both pod and container, settings on container level will override the settings on pod level
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: security-context-pod
+spec:
+  containers:
+    - name: security-context-container
+      image: security-context-sleeper
+      securityContext:
+        runAsUser: 1000
+        capabilities:
+          add: ["NET_ADMIN", "SYS_TIME"] # Container-level only, not supported at pod level
+```
+
+#### Command
+- Check user that is running the container: `kubectl exec <pod-name> -- whoami`
+
 
 ### Resource Requirements
 
