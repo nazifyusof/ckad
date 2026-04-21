@@ -312,10 +312,58 @@ spec:
 #### Command
 - Check user that is running the container: `kubectl exec <pod-name> -- whoami`
 
-
 ### Resource Requirements
+- kube-scheduler checks resources before scheduling a pod to a node
+- CPU cannot use resources more than its limit, but Memory can use more than its limit (but will get OOM killed if constantly)
+- By default, no resource limit are set. A pod can use all the resources of a node, which can lead to resource contention and instability in the cluster.
+
+#### CPU behavior
+- No request, no limit: pod can use all CPU on the node, but is only guaranteed a minimal fair share if multiple pods compete. CPU can be throttled during contention.
+- No request, limit: pod can use all the CPU resources of the node, but it will be throttled if it tries to use more than its limit
+- Request, limit: pod is guaranteed to have the requested CPU resources, but it will be throttled if it tries to use more than its limit
+- Request, no limit: pod is guaranteed to have the requested CPU resources, but it can use all the CPU resources of the node if needed, which can lead to resource contention and instability in the cluster
+
+#### Memory
+- No request, no limit: Pod can use all memory on the node; may cause resource contention and instability if multiple pods use lots of memory.
+- No request, limit: Pod can use memory freely until it hits the limit; it will be OOMKilled if it tries to exceed the limit.
+- Request, limit: Pod is guaranteed the requested memory; will be OOMKilled if it exceeds the limit.
+- Request, no limit: Pod is guaranteed the requested memory, but can use more if available; Kubernetes cannot throttle memory, so pod may still be OOMKilled if node runs out of memory.
+
+#### Limit range
+
+```yaml
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-resource-constraints
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: 500m               # or memory: 512Mi
+    defaultRequest:
+      cpu: 200m                # or memory: 512Mi
+    max:
+      cpu: "1"
+    min:
+      cpu: 100m
+```
 
 ### Service Accounts
+- Two types of accounts
+  - User accounts, used by humans (admins, dev)
+  - Service accounts, used by machines (apps, prometheus, jenkins, etc.)
+- After v1.24, token is no longer automatically created for service accounts, we need to create a token secret and link it to the service account manually (has expiry date, 1h by default)
+
+
+#### Command
+- Create a service account: `kubectl create serviceaccount <service-account-name>`
+- View service accounts: `kubectl get serviceaccounts`
+- Describe service account: `kubectl describe serviceaccount <service-account-name>`, token stored as secret
+- Describe secret: `kubectl describe secret <secret-name>`, use token to access
+- Create token secret: `kubectl create token <service-account-name>`, this will automatically create a secret and link it to the service account
+- 
+
 
 ### Taint and Tolerations
 - Node: Taints, no unwanted pods to be scheduled on the node
@@ -400,43 +448,6 @@ spec:
 - Combination of both can be used to achieve more complex scheduling requirements
   - TnT to prevent other pods form being placed on our nodes
   - Affinity to specify where our pods should be placed, and prevent our pods from being placed on other nodes
-
-### Resource Limits
-- kube-scheduler checks resources before scheduling a pod to a node
-- CPU cannot use resources more than its limit, but Memory can use more than its limit (but will get OOM killed if constantly)
-- By default, no resource limit are set. A pod can use all the resources of a node, which can lead to resource contention and instability in the cluster.
-
-#### CPU behavior
-- No request, no limit: pod can use all CPU on the node, but is only guaranteed a minimal fair share if multiple pods compete. CPU can be throttled during contention.
-- No request, limit: pod can use all the CPU resources of the node, but it will be throttled if it tries to use more than its limit
-- Request, limit: pod is guaranteed to have the requested CPU resources, but it will be throttled if it tries to use more than its limit
-- Request, no limit: pod is guaranteed to have the requested CPU resources, but it can use all the CPU resources of the node if needed, which can lead to resource contention and instability in the cluster
-
-#### Memory
-- No request, no limit: Pod can use all memory on the node; may cause resource contention and instability if multiple pods use lots of memory.
-- No request, limit: Pod can use memory freely until it hits the limit; it will be OOMKilled if it tries to exceed the limit.
-- Request, limit: Pod is guaranteed the requested memory; will be OOMKilled if it exceeds the limit.
-- Request, no limit: Pod is guaranteed the requested memory, but can use more if available; Kubernetes cannot throttle memory, so pod may still be OOMKilled if node runs out of memory.
-
-#### Limit range
-
-```yaml
-apiVersion: v1
-kind: LimitRange
-metadata:
-  name: cpu-resource-constraints
-spec:
-  limits:
-  - type: Container
-    default:
-      cpu: 500m               # or memory: 512Mi
-    defaultRequest:
-      cpu: 200m                # or memory: 512Mi
-    max:
-      cpu: "1"
-    min:
-      cpu: 100m
-```
 
 
 ## 3. Observability
