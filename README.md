@@ -449,6 +449,66 @@ spec:
   - TnT to prevent other pods form being placed on our nodes
   - Affinity to specify where our pods should be placed, and prevent our pods from being placed on other nodes
 
+## 2.5. Multi-container Pods
+- Create multicontainer pod (co-located containers pattern)
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
+    app: simple-webapp
+spec:
+  containers:
+    - name: web-app
+      image: simple-webapp:latest
+      ports:
+      - containerPort: 8080
+    - name: main-app
+      image: main-app
+```
+
+### Design patterns
+- Co-located Containers: Two containers running in a pod, used when 2 services dependent on each other, e.g. web server and app 
+- Regular Init Container: A container that runs before the main container, used for initialization tasks, e.g. database migration, configuration setup, etc.
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
+    app: simple-webapp
+spec:
+  containers:
+    - name: web-app
+      image: simple-webapp:latest
+      ports:
+      - containerPort: 8080
+  initContainers:
+  - name: main-app
+    image: busybox
+    command: 'wait-for-it.sh db'
+```
+- Sidecar Containers: A container that runs alongside the main container, used for enhancing the main container, e.g. log collector, proxy, etc.
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
+    app: simple-webapp
+spec:
+  containers:
+    - name: web-app
+      image: simple-webapp:latest
+      ports:
+      - containerPort: 8080
+  initContainers:
+  - name: main-app
+    image: busybox
+    command: 'wait-for-it.sh db'
+    restartPolicy: Always
+```
 
 ## 3. Observability
 ## 4. Pod Design
