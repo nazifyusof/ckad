@@ -509,18 +509,94 @@ spec:
     command: 'wait-for-it.sh db'
     restartPolicy: Always
 ```
+---
 
 ## 3. Observability
+### Readiness Probes
+- POD status: `Pending` -> `ContainerCreating` -> `Running`
+- POD Conditions: `ContainersReady`,`Initialized`, `PodScheduled`, `Ready`
+- To expose
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: myapp-pod
+spec:
+    containers:
+    - name: myapp-container
+      image: myapp
+      readinessProbe:
+        httpGet: 
+          path: /api/ready
+          port: 8080
+#         or
+#        readinessProbe:
+#          tcpSocket:
+#            port: 8080
+#         or
+#        readinessProbe:
+#          exec:
+#            command: ["cat", "/app/ready"]
+```
+
+### Liveness Probes
+- To test if the apps is actually healthy
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: myapp-pod
+spec:
+    containers:
+    - name: myapp-container
+      image: myapp
+      livenessProbe:
+        httpGet: 
+          path: /api/healthy
+          port: 8080
+#         or
+#        readinessProbe:
+#          tcpSocket:
+#            port: 8080
+#         or
+#        readinessProbe:
+#          exec:
+#            command: ["cat", "/app/is_healthy"]
+```
+
+### Logging
+- To get logs, `kubectl logs -f <pod-name>` 
+- For multi-container pods, `kubectl logs -f <pod-name> -c <container-name>`
+
+### Monitor and Debug Apps
+- Opensource: Metrics Server, Prometheus, Grafana, Jaeger, etc.
+- Paid: Datadog, Dynatrace, New Relic, etc.
+- Metrics Server: Collects resource usage data (CPU, memory) from nodes and pods, used for autoscaling and monitoring, but does not store historical data
+- Agent, known as kubelet, runs on each node and collects metrics, which are then aggregated by the Metrics Server
+  - Kubelet also contains a cAdvisor component that collects container-level metrics, such as CPU and memory usage, which are then exposed to the Metrics Server
+- For minikube
+  - Enable Metrics Server: `minikube addons enable metrics-server`
+- Others
+  - git clone https://github.com/kubernetes-sigs/metrics-server.git
+  - `kubectl apply -f components.yaml` to deploy Metrics Server
+- To check metrics: `kubectl top nodes` and `kubectl top pods`
+
+---
+
 ## 4. Pod Design
+---
 ## 5. Services & Networking
+---
 ## 6. State Persistence
+---
 ## 7. Security
+---
 ## 8. Helm Fundamentals
+---
 ## 9. Kustomize Fundamentals
+---
 
-
-
-## 9. Exam Tips & Speed Tricks
+## 10. Exam Tips & Speed Tricks
 
 ### Aliases
 ```bashrc
@@ -579,14 +655,6 @@ Create a Service named redis-service of type ClusterIP to expose pod redis on po
 Create a Service named nginx of type NodePort to expose pod nginx's port 80 on port 30080 on the nodes:
 - `kubectl expose pod nginx --type=NodePort --port=80 --name=nginx-service --dry-run=client -o yaml` (This will automatically use the pod's labels as selectors, but you cannot specify the node port. You have to generate a definition file and then add the node port in manually before creating the service with the pod.)
 - `kubectl create service nodeport nginx --tcp=80:80 --node-port=30080 --dry-run=client -o yaml` (This will not use the pods labels as selectors)
-
-
-
-
-
-
-
-
 
 
 
