@@ -584,8 +584,39 @@ spec:
 ---
 
 ## 4. Pod Design
-
 ### Labels, Selectors and Annotations
+- Labels: Use to identify and organize resources, e.g. app=myapp, env=prod, etc.
+- Selectors: Use to select resources based on labels, e.g. app=myapp, env=prod, etc.
+
+```yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: App1
+  labels:
+    app: myapp              # label of ReplicaSet
+    Function: front-end
+annotations:
+  buildVersion: "1.0.0"     # annotation of ReplicaSet
+spec:
+  replicas: 3
+  selector:
+    matchLabels:             # selector of ReplicaSet, used to select pods with matching labels
+      app: App1
+  template:
+      metadata:
+          labels:             # label of newly created pods
+            app: App1
+            Function: front-end
+      spec:
+          containers:
+          - name: nginx-container
+            image: nginx:latest
+```
+- Annotations: used to records other details for other informatry purposes, e.g. build version, git commit hash, etc. Not used for selection or organization
+
+
+- Get pod based on selector, `kubectl get pods -l <key>=<value>`, e.g. `kubectl get pods --selector app=App1`
 
 ### Rolling updates and Rollbacks in Deployments
 
