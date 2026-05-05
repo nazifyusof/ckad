@@ -584,6 +584,21 @@ spec:
 ---
 
 ## 4. Pod Design
+
+### Labels, Selectors and Annotations
+
+### Rolling updates and Rollbacks in Deployments
+
+### Updating Deployments
+
+### Deployment Strategy: Blue-Green
+
+### Deployment Strategy: Canary
+
+### Jobs
+
+### CronJobs
+
 ---
 ## 5. Services & Networking
 ---
