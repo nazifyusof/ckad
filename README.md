@@ -619,16 +619,177 @@ spec:
 - Get pod based on selector, `kubectl get pods -l <key>=<value>`, e.g. `kubectl get pods --selector app=App1`
 
 ### Rolling updates and Rollbacks in Deployments
+- See rollout status, `kubectl rollout status deployment/<deployment-name>`
+- See rollout history, `kubectl rollout history deployment/<deployment-name>`
+- Undo rollout, `kubectl rollout undo deployment/<deployment-name>`
+- Rolling update: The default deployment strategy
+- Recreate: All old pods are killed before new pods are created, which can cause downtime
 
-### Updating Deployments
-
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: App1
+spec:
+    replicas: 3
+    strategy:
+        type: RollingUpdate
+        rollingUpdate:
+            maxUnavailable: 1
+            maxSurge: 1
+        #or
+        #type: Recreate
+```
 ### Deployment Strategy: Blue-Green
+- Blue: old version
+- Green: new version
+- Switch traffic from blue to green when green is ready, which can be achieved by updating the
+- E.g. update service definition to switch from blue to green
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+    name: myapp-service
+spec:
+    selector:
+        version: v1 # switch to v2 when green is ready
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blue
+spec:
+  replicas: 3
+  template:
+      metadata:
+        name: myapp-pod
+        labels:
+            app: myapp
+            version: v1
+  selector:
+    matchLabels:
+      app: myapp
+      version: v1
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: green
+spec:
+  replicas: 3
+  template:
+    metadata:
+      name: myapp-pod
+      labels:
+        app: myapp
+        version: v2
+  selector:
+    matchLabels:
+      app: myapp
+      version: v2
+```
 
 ### Deployment Strategy: Canary
+- Route a small percentage of traffic to the new version (canary) first
+- Route traffic to both version and we can route to canary by reducing pods in canary deployments
+- Weakness: we cannot define percentage of traffic to route to canary
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+    name: myapp-service
+spec:
+    selector:
+        app: frontend
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: primary
+spec:
+  replicas: 3
+  template:
+      metadata:
+        name: myapp-pod
+        labels:
+            app: front-end
+            version: v1
+  selector:
+    matchLabels:
+      app: myapp
+      version: v1
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: canary
+spec:
+  replicas: 3
+  template:
+    metadata:
+      name: front-end
+      labels:
+        app: myapp
+        version: v2
+  selector:
+    matchLabels:
+      app: myapp
+      version: v2
+```
 
 ### Jobs
+- Run a task to completion, e.g. data processing, database migration, etc.
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: math-add-job
+spec:
+  completions: 3 # number of times the job should be completed, default is 1, one created after another
+  parallelism: 3 # number of pods to run in parallel, default is 1, all created at the same time
+  template:
+    spec:
+      containers:
+      - name: math-add-container
+        image: math-add:latest
+        command: ['expr', '1', '+', '1']
+      restartPolicy: Never
+```
+- Create job, `kubectl create -f job-definition.yaml`
+- View jobs, `kubectl get jobs`
+- Get job pod, `kubectl get pods --selector=job-name=<job-name>`, status should be completed
+- View job logs, `kubectl logs <job-pod-name>`
+- Delete job, `kubectl delete job <job-name>`
 
 ### CronJobs
+- Job that can be scheduled
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+    name: reporting-cronjob
+spec:
+    schedule: "0 0 * * *" # every day at midnight
+    jobTemplate:
+      spec:
+        completions: 3 # number of times the job should be completed, default is 1, one created after another
+        parallelism: 3 # number of pods to run in parallel, default is 1, all created at the same time
+        template:
+          spec:
+            containers:
+              - name: math-add-container
+                image: math-add:latest
+                command: ['expr', '1', '+', '1']
+            restartPolicy: Never
+```
 
 ---
 ## 5. Services & Networking
