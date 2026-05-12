@@ -793,6 +793,165 @@ spec:
 
 ---
 ## 5. Services & Networking
+- By default, all pods can communicate with each other within the cluster
+
+### Network Policies
+- Another object that can be linked to pods, configuring ingress and egress rules for pods
+- Solutions that support Network Policies
+  - Kube-router
+  - Calico
+  - Romana
+- Solution that DOES NOT support Network Policies
+  - Flanne
+- Create a NP to block all ingress traffic to a pod, except name == api-pod on port 3306 on prod
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:                # Rule 1 or
+        matchLabels:
+          name: api-pod
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: prod
+    - ipBlock:                     # Rule 2
+       cidr: 192.168.5.10/41
+    ports:
+      - protocol: TCP
+        port: 3306
+  egress:
+    - to:
+      - ipBlock:
+          cidr: 192.168.5.10/42
+      ports:
+        - protocol: TCP
+          port: 3306
+```
+
+### Ingress Networking
+- Services vs Ingress
+  - Services: Expose a set of pods as a network service, e.g. ClusterIP, NodePort, LoadBalancer, etc.
+  - Ingress: Expose HTTP and HTTPS routes from outside the cluster to services within the cluster
+
+1) Deploy reverse proxy or a load balancing solution like nginx, traefik, HAProxy, etc. as an Ingress Controller in the cluster
+2) Configure settings involving defining URL routes, SSL certs (Ingress resources)
+
+
+- Ingress controller, 
+  - Create ConfigMap to decouple configuration from the controller, and then link the ConfigMap to the controller deployment
+  - Create Service to expose the controller, and then link the Service to the controller deployment
+  - Create ServiceAccount to link to the controller deployment, which will be used by the controller to access the API server and other resources in the cluster
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-ingress-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-ingress-controller
+  template:
+    metadata:
+      labels:
+        name: nginx-ingress-controller
+    spec:
+      containers:
+        - name: nginx-ingress-controller
+          image: nginx-ingress-controller:latest
+          args:
+            - /nginx-ingress-controller
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+```
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-ingress-service
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      name: http
+      port: 80
+      targetPort: 80
+```
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+    name: nginx-ingress-serviceaccount
+```
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+```
+
+- Ingres Resource
+  - Is a set of rules and resources applied to the Ingress Controller
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: ingress-wear
+spec:
+  defaultBackend:
+    service:
+      name: wear-service
+      port:
+        number: 80
+```
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-wear-watch
+spec:
+  rules:
+    - http:
+        paths:
+        - path: /wear
+          pathType: Prefix
+          backend:
+            service:
+              name: wear-service
+              port: 
+                number: 80
+        - path: /watch
+          pathType: Prefix
+          backend:
+            service:
+              name: wear-service
+              port:
+                number: 80
+```
+- describe Ingress, `kubectl describe ingress <ingress-name>`, to see the rules and resources applied to the Ingress Controller
+-  
+
 ---
 ## 6. State Persistence
 ---
