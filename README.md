@@ -1117,5 +1117,6 @@ Create a Service named nginx of type NodePort to expose pod nginx's port 80 on p
 - `kubectl expose pod nginx --type=NodePort --port=80 --name=nginx-service --dry-run=client -o yaml` (This will automatically use the pod's labels as selectors, but you cannot specify the node port. You have to generate a definition file and then add the node port in manually before creating the service with the pod.)
 - `kubectl create service nodeport nginx --tcp=80:80 --node-port=30080 --dry-run=client -o yaml` (This will not use the pods labels as selectors)
 
-
+## External Learnings
+Podman basics: https://github.com/dgkanatsios/CKAD-exercises/blob/main/j.podman.md
 
