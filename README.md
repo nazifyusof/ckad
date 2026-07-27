@@ -954,6 +954,101 @@ spec:
 
 ---
 ## 6. State Persistence
+
+### Storage - Docker File System
+- /var/lib/docker
+  - aufs
+  - containers
+  - image
+  - volumes
+- Layered architecture
+  - Layer 1: Base ubuntu layer
+  - Layer 2: Changes in apt packages
+  - Layer 3: Changes in pip packages
+  - Layer 4: Source code
+  - Layer 5: Update entrypoint
+- Bind mount vs volume mount
+  - Bind mount: Mount a file or directory from the host machine into the container, e.g. `docker run -v /host/path:/container/path myapp`
+  - Volume mount: Mount a volume from the Docker daemon into the container, e.g. `docker run -v myvolume:/container/path myapp`
+
+### Volumes (PV and PVC)
+https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+- A volume is a directory that is accessible to containers in a pod, and is managed by Kubernetes
+- When deleting PVC in used, the PVC will be in Terminating state, until deleting the pod that is using the PVC, then the PVC will be deleted
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+    name: pv-volume
+spec:
+    capacity:
+        storage: 1Gi
+    accessModes:
+        - ReadWriteMany # ReadWriteOnce / ReadOnlyMany
+    persistentVolumeReclaimPolicy: Retain #/ Recycle / Delete
+    hostPath:
+      path: /pv/log      
+      
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: pvc-volume
+spec:
+    accessModes:
+        - ReadWriteMany
+    resources:
+        requests:
+            storage: 1Gi
+    storageClassName: standard
+```
+
+### Storage Classes
+- Dynamic provisioning of PVs, e.g. AWS EBS, GCE PD, Azure Disk, etc.
+- Define a provisioner, such as AWS EBS, GCE PD, Azure Disk, etc., and parameters for the provisioner
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: google-storage
+provisioner: kubernetes.io/gce-pd
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-volume
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: google-storage  # need to match the storage class name defined in the StorageClass resource
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: random-number-generator
+spec:
+    containers:
+    - image: alpine
+      name: random-number-generator
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do echo $RANDOM >> /data/random-numbers.txt; sleep 1; done"]
+      volumeMounts:
+      - mountPath: /opt
+        name: data-volume
+    volumes:
+    - name: data-volume
+      persistentVolumeClaim:
+        claimName: pvc-volume    # need to match the PVC name defined in the PersistentVolumeClaim resource
+```
+## Stateful Sets (SKIPPING)
+
 ---
 ## 7. Security
 ---
