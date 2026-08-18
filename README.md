@@ -1051,6 +1051,68 @@ spec:
 
 ---
 ## 7. Security
+- What are the risk and what measure is needed to secure the cluster
+1. Who can access and what they can do
+
+### Authentication
+- Users: Admins and Developers
+- Service Accounts: Bots
+- Can create service account, but not user
+- All user access is managed by kube-apiserver
+  - Static Token file (Not recommended!)
+  - Certificates
+  - Identity Providers (OIDC, LDAP, etc.)
+
+
+7650
+7632
+
+### Kubeconfig
+- `kubectl get pods --kubeconfig config`
+- Three sections
+  - Clusters
+    - Cluster name: Dev, prod
+    - Server specification goes here
+  - Contexts
+    - marry above and below together
+    - which user can access what cluster
+  - Users
+    - User accounts; admin, developer, etc.
+    - Admin user keys and certs goes here
+```yaml
+apiVersion: v1
+kind: Config
+clusters:
+  - name: my-kube-playground
+    cluster:
+      server: https://my-kube-playground.example.com
+      certificate-authority-data: ca.crt
+contexts:
+  - name: my-kube-admin@my-kube-playground
+    context:
+      cluster: my-kube-playground
+      user: my-kube-admin
+users:
+  - name: my-kube-admin
+    user:
+      client-certificate-data: admin.crt
+      client-key-data: admin.key
+```
+
+###
+
+###
+
+###
+
+###
+
+###
+
+###
+
+###
+
 ---
 ## 8. Helm Fundamentals
 ---
